@@ -1,5 +1,5 @@
 fastapi
-jinja2
+pydantic
 uvicorn
 py-grpc-prometheus
 python-logging-loki
