@@ -6,9 +6,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from prometheus_client import Counter, Histogram, Gauge
+from opentelemetry import trace
+from opentelemetry.trace.status import Status, StatusCode
 
 # Get logger
 logger = logging.getLogger("api")
+tracer = trace.get_tracer(__name__)
 
 # Prometheus Metrics
 REQUESTS = Counter("api_requests_total", "Total count of requests", ["method", "endpoint"])
@@ -28,69 +31,92 @@ def setup_middleware(app: FastAPI):
         allow_headers=["*"],
     )
     
-    # Request metrics middleware
+    # Request metrics and tracing middleware
     @app.middleware("http")
-    async def metrics_middleware(request: Request, call_next):
+    async def metrics_and_tracing_middleware(request: Request, call_next):
         method = request.method
         endpoint = request.url.path
-        REQUESTS.labels(method=method, endpoint=endpoint).inc()
-        ACTIVE_REQUESTS.inc()
+        
+        # Skip tracing for excluded endpoints
+        if endpoint != "/metrics":
+            with tracer.start_as_current_span(
+                name=f"{method} {endpoint}",
+                kind=trace.SpanKind.SERVER,
+            ) as span:
+                try:
+                    # Add request details to span
+                    span.set_attribute("http.method", method)
+                    span.set_attribute("http.url", str(request.url))
+                    span.set_attribute("http.route", endpoint)
+                    
+                    # Add custom attributes if needed
+                    client_ip = request.client.host if request.client else "unknown"
+                    span.set_attribute("client.ip", client_ip)
+                    
+                    # Standard metrics
+                    REQUESTS.labels(method=method, endpoint=endpoint).inc()
+                    ACTIVE_REQUESTS.inc()
+                    start_time = time.time()
 
-        start_time = time.time()
-        client_ip = request.client.host if request.client else "unknown"
-        logger.info(f"➡️ {method} {endpoint} from {client_ip}")
+                    # Execute the request
+                    response = await call_next(request)
+                    
+                    # Add response information to span
+                    span.set_attribute("http.status_code", response.status_code)
+                    duration = time.time() - start_time
+                    span.set_attribute("duration_ms", duration * 1000)
+                    
+                    # Update metrics
+                    LATENCY.labels(method=method, endpoint=endpoint).observe(duration)
+                    
+                    return response
+                    
+                except Exception as e:
+                    # Handle exceptions
+                    exception_type = type(e).__name__
+                    EXCEPTIONS.labels(endpoint=endpoint, exception_type=exception_type).inc()
+                    
+                    # Add error details to span
+                    span.set_status(Status(StatusCode.ERROR))
+                    span.record_exception(e)
+                    span.set_attribute("error.type", exception_type)
+                    span.set_attribute("error.message", str(e))
+                    
+                    logger.error(f"500 - ❌ Exception on {method} {endpoint}: {e}")
+                    raise
+                finally:
+                    ACTIVE_REQUESTS.dec()
+        else:
+            # For excluded endpoints, just process without tracing
+            return await call_next(request)
 
-        try:
-            response = await call_next(request)
-            duration = time.time() - start_time
-            
-            # Add structured field for status_code to be extracted by Loki
-            extra = {"status_code": response.status_code}
-                
-            response.headers["X-Process-Time"] = str(duration)
-            return response
-        except Exception as e:
-            exception_type = type(e).__name__
-            # For exceptions, add status code 500 as a structured field
-            extra = {"status_code": 500}
-            EXCEPTIONS.labels(endpoint=endpoint, exception_type=exception_type).inc()
-            logger.error(f"500 - ❌ Exception on {method} {endpoint}: {e}", extra=extra)
-            raise e
-        finally:
-            LATENCY.labels(method=method, endpoint=endpoint).observe(time.time() - start_time)
-            ACTIVE_REQUESTS.dec()
-    
-    # Custom exception handlers
+    # Update the exception handlers to include tracing
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-        """Custom handler for HTTP exceptions like 404 Not Found"""
-        status_code = exc.status_code
-        detail = str(exc.detail)
-        
-        # Log the error
-        logger.error(
-            f"{status_code} - 🚫 HTTP - {request.method} {request.url.path}: {detail}", 
-            extra={"status_code": status_code}
-        )
-        
+        """Custom handler for HTTP exceptions"""
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute("error.type", "HTTPException")
+            current_span.set_attribute("error.status_code", exc.status_code)
+            current_span.set_attribute("error.detail", str(exc.detail))
+            current_span.set_status(Status(StatusCode.ERROR))
+
         return JSONResponse(
-            status_code=status_code,
-            content={"detail": detail},
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
         )
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
-        """Custom handler for request validation errors"""
-        error_messages = [f"{err['loc']}: {err['msg']}" for err in exc.errors()]
-        detail = "; ".join(error_messages)
-        
-        # Log the validation error
-        logger.error(
-            f"422 - ⚠️ Validation Error - {request.method} {request.url.path}: {detail}", 
-            extra={"status_code": 422}
-        )
-        
+        """Custom handler for validation errors"""
+        current_span = trace.get_current_span()
+        if current_span:
+            error_messages = [f"{err['loc']}: {err['msg']}" for err in exc.errors()]
+            current_span.set_attribute("error.type", "ValidationError")
+            current_span.set_attribute("error.detail", "; ".join(error_messages))
+            current_span.set_status(Status(StatusCode.ERROR))
+
         return JSONResponse(
             status_code=422,
-            content={"detail": error_messages},
+            content={"detail": [err for err in exc.errors()]},
         )

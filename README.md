@@ -1,218 +1,185 @@
 # API Monitoring Project
 
-This project demonstrates a FastAPI-based e-commerce API with comprehensive monitoring using Prometheus and Grafana, along with Loki for log aggregation.
+A FastAPI-based e-commerce API with comprehensive monitoring using Prometheus, Grafana, Jaeger, and Loki.
 
 ## Table of Contents
-- [Overview](#overview)
 - [Features](#features)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Configuration](#configuration)
-- [Usage](#usage)
-  - [API Endpoints](#api-endpoints)
-  - [Monitoring](#monitoring)
-- [Architecture](#architecture)
-- [Metrics](#metrics)
+- [Quick Start](#quick-start)
+- [Monitoring Setup](#monitoring-setup)
+- [API Usage](#api-usage)
 - [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-
-## Overview
-
-The API Monitoring project provides a foundation for implementing observability in modern web applications. It combines:
-
-- A FastAPI application serving an e-commerce API
-- Prometheus metrics collection with custom business metrics
-- Grafana dashboards for visualization
-- Loki for centralized logging
-- Docker-based deployment for easy setup
-
-This setup allows you to monitor not only technical metrics like request counts and latencies but also business-specific metrics like product searches, filter usage patterns, and zero-result searches.
 
 ## Features
 
-### API Features
-- Product search with multiple filters (category, price, brand, etc.)
-- Product details by ID
-- Category, subcategory, brand, and color listings
-- Health and status endpoints
+- FastAPI e-commerce endpoints with product search and filtering
+- Comprehensive monitoring stack:
+  - Prometheus for metrics collection
+  - Grafana for metrics visualization
+  - Jaeger for distributed tracing
+  - Loki for log aggregation
+- Docker-based deployment
+- Custom business metrics and traces
 
-### Monitoring Features
-- Request count and latency metrics
-- Error tracking and categorization
-- Business metrics for e-commerce operations
-- Structured logging with Loki integration
-- Ready-to-use Grafana dashboards
+## Quick Start
 
-## Getting Started
-
-### Prerequisites
-
-- [Docker](https://www.docker.com/get-started) and [Docker Compose](https://docs.docker.com/compose/install/)
-- [Python 3.9+](https://www.python.org/downloads/) (for local development)
-- [Git](https://git-scm.com/downloads) (optional)
-
-### Installation
-
-1. Clone or download the repository:
-   ```bash
-   git clone https://github.com/dev-shajid/api-monitoring.git
-   cd api-monitoring
-   ```
-
-2. Create environment file:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Start the services using Docker Compose:
-   ```bash
-   docker-compose up -d
-   ```
-
-   This will start:
-   - FastAPI application on port 8000
-   - Prometheus on port 9090
-   - Grafana on port 3000
-   - Loki on port 3100
-
-### Configuration
-
-The application is configured using environment variables defined in the `.env` file:
-
-- `ENVIRONMENT`: Development or production mode
-- `LOG_LEVEL`: Logging verbosity (INFO, DEBUG, etc.)
-- `LOKI_ENABLED`: Enable/disable Loki logging
-- `METRICS_ENABLED`: Enable/disable Prometheus metrics
-- `MONITORING_NAMESPACE`: Prefix for all metrics
-
-## Usage
-
-### API Endpoints
-
-After starting the services, the following endpoints are available:
-
-- **API Documentation**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
-- **Metrics**: http://localhost:8000/metrics
-- **Product Search**: http://localhost:8000/products
-- **Product Details**: http://localhost:8000/products/{id}
-- **Categories**: http://localhost:8000/products/categories
-
-Example API calls:
-
+1. Clone and setup:
 ```bash
-# Get all products
-curl http://localhost:8000/products
-
-# Search with filters
-curl http://localhost:8000/products?category=Electronics&min_price=300
-
-# Get product details
-curl http://localhost:8000/products/1
+git clone https://github.com/dev-shajid/api-monitoring.git
+cd api-monitoring
+cp .env.example .env
 ```
 
-### Monitoring
+2. Start services:
+```bash
+docker-compose up -d
+```
 
-- **Prometheus**: http://localhost:9090
-  - Query metrics using PromQL
-  - Check targets and scrape status
+3. Access services:
+- API & Docs: http://localhost:8000/docs
+- Grafana: http://localhost:3000 (admin/admin)
+- Jaeger UI: http://localhost:16686
+- Prometheus: http://localhost:9090
 
-- **Grafana**: http://localhost:3000 (username: admin, password: admin)
-  - Import dashboards for API monitoring
-  - Create custom visualizations
-  - Set up alerts
+## Monitoring Setup
 
-- **Loki**: Accessed through Grafana
-  - Query logs using LogQL
-  - Filter by status code, endpoint, or error type
+### 1. Grafana Dashboards
 
-## Architecture
+- Access the pre-configured E-commerce dashboard:
+  http://localhost:3000/goto/TYiDMs0Hg?orgId=1
 
-The project consists of the following components:
+Dashboard includes:
+- Request rates and latencies
+- Error rates by type
+- Product search metrics
+- Resource utilization
+- Log correlation
 
-1. **FastAPI Application**:
-   - Core API functionality
-   - Middleware for metrics collection
-   - Structured logging
+### 2. Jaeger Distributed Tracing
 
-2. **Prometheus**:
-   - Metrics scraping and storage
-   - Time-series database
+Access Jaeger UI: http://localhost:16686
 
-3. **Grafana**:
-   - Visualization platform
-   - Dashboard creation
-   - Alerts configuration
+Key features:
+- Search traces by:
+  - Service: "ecommerce-api"
+  - Operation: Specific endpoints
+  - Tags: Error types, status codes
+  - Time range
 
-4. **Loki**:
-   - Log aggregation
-   - Querying capabilities
+Generate sample traces:
+```bash
+# Normal operations
+curl http://localhost:8000/products
+curl http://localhost:8000/products/1
+curl http://localhost:8000/health
 
-5. **Node Exporter & cAdvisor**:
-   - System-level metrics
-   - Container metrics
+# Error traces
+curl http://localhost:8000/error?type=value
+curl http://localhost:8000/error?type=runtime
+```
 
-## Metrics
+Understanding traces:
+- Each trace shows complete request flow
+- Spans show operation timing
+- Error details and stack traces
+- Request/response parameters
+- Custom attributes
 
-The application exposes various metrics through the `/metrics` endpoint:
+### 3. Metrics (Prometheus)
 
-### Technical Metrics
-- `api_requests_total`: Total number of HTTP requests
-- `api_exceptions_total`: Total count of exceptions
-- `api_request_duration_seconds`: Request latency histogram
-- `api_active_requests`: Gauge of currently active requests
+Available metrics:
 
-### Business Metrics
-- `api_product_searches_total`: Product search count by category
-- `api_product_search_results`: Histogram of search result counts
-- `api_product_views_total`: Individual product view count
-- `api_filter_usage_total`: Usage count of different filter types
-- `api_category_views_total`: Category view count
-- `api_search_latency_seconds`: Search operation latency
-- `api_zero_results_searches_total`: Searches with no results
+Technical:
+- `api_requests_total`: Request count by endpoint
+- `api_exceptions_total`: Exception count by type
+- `api_request_duration_seconds`: Request latency
+- `api_active_requests`: Current request count
+
+Business:
+- `api_product_searches_total`: Search count by category
+- `api_product_views_total`: Product view count
+- `api_filter_usage_total`: Filter usage patterns
+- `api_search_latency_seconds`: Search performance
+
+### 4. Logging (Loki)
+
+Access through Grafana:
+1. Click "Explore"
+2. Select "Loki" data source
+3. Query logs using LogQL
+
+Example queries:
+```logql
+{container="api"} |= "error"
+{container="api"} | json | status_code >= 400
+```
+
+## API Usage
+
+Key endpoints:
+```bash
+# Product operations
+GET /products                   # List products
+GET /products/{id}             # Get product details
+GET /products/categories       # List categories
+
+# Monitoring
+GET /metrics                   # Prometheus metrics
+GET /health                    # Health check
+GET /error?type=value         # Generate test error
+```
+
+Search with filters:
+```bash
+curl "http://localhost:8000/products?category=Electronics&min_price=300"
+```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Metrics not appearing in Prometheus**
-   - Check if the API is accessible at http://localhost:8000/metrics
-   - Verify Prometheus targets at http://localhost:9090/targets
-   - Check the Prometheus configuration in `prometheus.yml`
+1. **No Traces in Jaeger**
+   - Check Jaeger is running: `docker ps | grep jaeger`
+   - Check app logs for connection errors
 
-2. **Logs not appearing in Loki**
-   - Ensure Loki is running (`docker-compose ps`)
-   - Check Loki status at http://localhost:8000/loki-status
-   - Verify the Loki URL in the `.env` file
+2. **Missing Metrics in Grafana**
+   - Ensure Prometheus is running and scraping
+   - Check data source configuration in Grafana
+   - Verify metrics endpoint: http://localhost:8000/metrics
 
-3. **Docker networking issues**
-   - On macOS, ensure `host.docker.internal` resolves correctly
-   - Check if the containers can communicate with each other
+3. **Docker Networking**
+   - Verify host.docker.internal resolution
+   - Check container connectivity
+   - Inspect container logs
 
-### Testing the Monitoring Setup
+### Monitoring Health Check
 
-The application provides a special endpoint to generate errors for testing:
-
+1. Generate test data:
 ```bash
-# Generate a random error
-curl http://localhost:8000/error
+# Generate requests
+for i in {1..10}; do curl http://localhost:8000/products; done
 
-# Generate a specific error type (value, key, type, runtime)
-curl http://localhost:8000/error?type=value
+# Generate errors
+curl http://localhost:8000/error
 ```
 
-## Contributing
+2. Verify monitoring:
+- Check Jaeger for traces
+- View Grafana dashboard
+- Query Prometheus metrics
+- Search logs in Loki
 
-Contributions are welcome! To contribute:
+### Environment Variables
 
-1. Fork the repository
-2. Create a feature branch
-3. Add your changes
-4. Submit a pull request
-
-Please ensure your code follows the project's style and includes appropriate tests.
+Key configurations in `.env`:
+```env
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+METRICS_ENABLED=true
+MONITORING_NAMESPACE=api
+```
 
 ---
 
-Built with ❤️ using FastAPI, Prometheus, Grafana, and Loki
+Built with FastAPI, Prometheus, Grafana, Jaeger, and Loki 📊
+
+For more details, check the [API Documentation](http://localhost:8000/docs)

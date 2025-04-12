@@ -66,6 +66,22 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  jaeger:
+      image: jaegertracing/all-in-one:latest
+      container_name: jaeger
+      ports:
+        - "14268:14268"  # Collector HTTP endpoint
+        - "16686:16686"  # Web UI
+      environment:
+        - COLLECTOR_OTLP_ENABLED=true
+        - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      networks:
+        - monitoring
+
 volumes:
   grafana-data:
   loki-data:
+
+networks:
+  monitoring:
+    driver: bridge

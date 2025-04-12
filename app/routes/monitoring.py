@@ -13,7 +13,6 @@ logger = logging.getLogger("api")
 # Check if Loki is available
 loki_available = False
 try:
-    import logging_loki
     loki_available = True
 except ImportError:
     pass
@@ -34,16 +33,26 @@ def loki_status():
         "timestamp": datetime.now().isoformat()
     }
 
-@router.get("/error", include_in_schema=False)
-def throw_error(type: str = None):
-    if os.getenv("ENV").lower() != "development":
+@router.get("/error")
+async def throw_error(type: str = None):
+    """
+    Test endpoint to generate different types of errors
+    
+    Parameters:
+    - type: Type of error to generate (value, key, type, runtime). If not specified, a random error will be thrown.
+    """
+    if os.getenv("ENV", "development").lower() != "development":
         raise HTTPException(status_code=403, detail="Access denied")
 
     error_type = type or random.choice(["value", "key", "type", "runtime"])
     logger.error(f"500 - 🔴 Triggered {error_type} error", extra={"status_code": 500})
 
     match error_type:
-        case "value": raise ValueError("Boom! ValueError triggered.")
-        case "key": raise KeyError("Oops! KeyError triggered.")
-        case "type": raise TypeError("Bruh! TypeError triggered.")
-        case _: raise RuntimeError("Chaos! RuntimeError triggered.")
+        case "value": 
+            raise ValueError("Boom! ValueError triggered.")
+        case "key": 
+            raise KeyError("Oops! KeyError triggered.")
+        case "type": 
+            raise TypeError("Bruh! TypeError triggered.")
+        case _: 
+            raise RuntimeError("Chaos! RuntimeError triggered.")

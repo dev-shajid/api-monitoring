@@ -7,6 +7,7 @@ from app.core.middleware import setup_middleware
 from app.routes.base import router as base_router
 from app.routes.products import router as items_router
 from app.routes.monitoring import router as monitoring_router
+from app.core.tracing import setup_tracing
 
 # Setup logging
 logger = setup_logging()
@@ -28,6 +29,7 @@ app = FastAPI(
 
 # Setup middleware
 setup_middleware(app)
+setup_tracing(app)
 
 # Include routers
 app.include_router(base_router)

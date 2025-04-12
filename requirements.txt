@@ -4,3 +4,11 @@ uvicorn
 py-grpc-prometheus
 python-logging-loki
 psutil
+
+opentelemetry-instrumentation-fastapi
+opentelemetry-distro
+opentelemetry-exporter-otlp-proto-grpc
+
+# opentelemetry-api 
+# opentelemetry-sdk
+# opentelemetry-exporter-jaeger
