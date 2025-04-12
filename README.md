@@ -40,6 +40,52 @@ docker-compose up -d
 - Jaeger UI: http://localhost:16686
 - Prometheus: http://localhost:9090
 
+## Local Development Setup
+
+1. Create and activate virtual environment:
+```bash
+# Windows
+python -m venv venv
+.\venv\Scripts\activate
+
+# Linux/Mac
+python3 -m venv venv
+source venv/bin/activate
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the FastAPI application:
+```bash
+# Development mode with auto-reload
+uvicorn app.main:app --reload
+
+# Or using Python directly
+python -m app.main
+```
+
+4. For local development, ensure:
+- Docker services are running (Prometheus, Grafana, Jaeger)
+- Environment variables are properly set in `.env`
+- Python 3.9+ is installed
+- Virtual environment is activated
+
+### Development Requirements
+
+```txt
+fastapi>=0.68.0
+uvicorn>=0.15.0
+prometheus-client>=0.11.0
+opentelemetry-api>=1.11.1
+opentelemetry-sdk>=1.11.1
+opentelemetry-instrumentation-fastapi>=0.30b1
+opentelemetry-exporter-jaeger>=1.11.1
+python-dotenv>=0.19.0
+```
+
 ## Monitoring Setup
 
 ### 1. Grafana Dashboards
